@@ -13,6 +13,7 @@
 #include "Transition.hpp"
 #include "Input.hpp"
 #include "Scaling.hpp"
+#include "../SoundPlayer.hpp"
 
 namespace px
 {
@@ -57,12 +58,15 @@ namespace px
 		Mapping mapping{ frameInput };
 		Transition transition;
 		Scaling scaling;
+		px::Registry<SoundData> soundData;
+		SoundPlayer sounds{ soundData };
 
 		sf::Time elapsed{};
 
 		EngineApi engApi{
 			scenes,
 			transition,
+			sounds,
 			assets,
 			mapping,
 			scaling

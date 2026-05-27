@@ -18,11 +18,13 @@ namespace px
 	class Transition;
 	class Mapping;
 	class Scaling;
+	class SoundPlayer;
 
 	struct EngineApi
 	{
 		SceneCommands& comms;
 		Transition& transition;
+		SoundPlayer& sounds;
 		const Assets& assets;
 		const Mapping& mapping;
 		const Scaling& scaling;

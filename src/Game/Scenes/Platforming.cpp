@@ -3,11 +3,16 @@
 #include <cmath>
 #include <cstdlib>
 #include <optional>
+#include <fstream>
+
+#include <nlohmann/json.hpp>
 
 #include "Platforming.hpp"
 #include "Game/Constants.hpp"
 #include "Game/DeprecatedDevice.hpp"
 #include "../Level.hpp"
+
+namespace nl = nlohmann;
 
 struct PairHash
 {
@@ -27,54 +32,17 @@ Scenes::Platforming::Platforming(px::SceneInitCtx& ctx, Context& gctx) :
 	m_landing(m_ctx.sounds.at("landing")),
 	m_step(m_ctx.sounds.at("step"))
 {
-	struct DIO
-	{
-		std::pair<int32_t, int32_t> pos;
-		bool invert{};
-	};
+	std::ifstream file(RESOURCES + ("levels/" + std::to_string(m_ctx.selectedLevel)) + ".json");
+	nl::json obj;
+	
+	file >> obj;
 
-	struct DeprecatedDevicePrefab
-	{
-		DeprecatedDeviceType type;
-		std::vector<DIO> in, out;
-	};
+	sf::Vector2u size{};
+	auto mapBuilder = obj["map"].get<std::vector<std::string>>();
+	size.y = uint32_t(mapBuilder.size());
+	size.x = std::min_element(mapBuilder.begin(), mapBuilder.end(), [](const std::string& l, const std::string& r) {return l.size() < r.size(); })->size();
 
-	const char* mapBuilder[]
-	{
-		"                                                            ",
-		"                                                            ",
-		"                                                            ",
-		"                                                            ",
-		"                                                            ",
-		"                                                            ",
-		"                                                            ",
-		"                                                            ",
-		"                                                            ",
-		"                                                            ",
-		"     iiiiiiiiiiii                                           ",
-		"############################################################",
-	};
-
-	std::vector<DeprecatedDevicePrefab> devicePrefabs{
-		{
-			DeprecatedDeviceType::Timed,
-			{},
-			{
-				{ {5, 10} },
-				{ {6, 10} },
-				{ {7, 10} },
-				{ {8, 10}, true},
-				{ {9, 10}, true },
-				{ {10, 10}, true },
-				{ {11, 10} },
-				{ {12, 10} },
-				{ {13, 10} },
-				{ {14, 10}, true },
-				{ {15, 10}, true },
-				{ {16, 10}, true }
-			}
-		}
-	};
+	m_map.resize(size);
 
 	std::unordered_map<std::pair<int32_t, int32_t>, entt::entity, PairHash> tileEntities;
 
@@ -101,34 +69,51 @@ Scenes::Platforming::Platforming(px::SceneInitCtx& ctx, Context& gctx) :
 		}
 	}
 
-	for (const auto& [type, in, out] : devicePrefabs)
+	for (const auto& prefab : obj["devices"])
 	{
-		DeprecatedDevice device{ type };
+		DeprecatedDeviceType type;
+
+		if (prefab["type"] == "time")
+		{
+			type = DeprecatedDeviceType::Timed;
+		}
+		else
+		{
+			type = DeprecatedDeviceType::And;
+		}
+
+		DeprecatedDevice device{type};
 
 		if (type == DeprecatedDeviceType::Timed)
 		{
-			device.onTime = sf::seconds(5);
-			device.offTime = sf::seconds(5);
+			device.onTime = sf::seconds(prefab["on"]);
+			device.offTime = sf::seconds(prefab["off"]);
 		}
-		
-		for (auto e : in)
+		else
 		{
-			if (!tileEntities.count(e.pos))
+			for (auto e : prefab["in"])
+			{
+				std::pair pair{ e[0], e[1] };
+
+				if (!tileEntities.count(pair))
+				{
+					continue;
+				}
+
+				device.in.push_back({ tileEntities.at(pair), e.size() > 2 ? e[2].get<bool>() : false });
+			}
+		}
+
+		for (auto e : prefab["out"])
+		{
+			std::pair pair{ e[0], e[1] };
+
+			if (!tileEntities.count(pair))
 			{
 				continue;
 			}
 
-			device.in.push_back({ tileEntities.at(e.pos), e.invert });
-		}
-
-		for (auto e : out)
-		{
-			if (!tileEntities.count(e.pos))
-			{
-				continue;
-			}
-
-			device.out.push_back({ tileEntities.at(e.pos), e.invert });
+			device.out.push_back({ tileEntities.at(pair), e.size() > 2 ? e[2].get<bool>() : false });
 		}
 
 		m_devices.push_back(std::move(device));
@@ -137,8 +122,11 @@ Scenes::Platforming::Platforming(px::SceneInitCtx& ctx, Context& gctx) :
 	{
 		auto player = m_ctx.entities.get("player").spawn(m_registry);
 		auto& transform = m_registry.get<Transform>(player);
-		transform.pos = { 2.5f, 2.5f };
+		transform.pos.x = obj["player"][0];
+		transform.pos.y = obj["player"][1];
 		transform.oldPos = transform.pos;
+		m_cameraPosition = transform.pos;
+		m_oldCameraPosition = transform.pos;
 	}
 
 	auto mapSize = static_cast<sf::Vector2f>(m_map.size());

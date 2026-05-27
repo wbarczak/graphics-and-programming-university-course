@@ -28,7 +28,9 @@ namespace px
 		const T& set(const std::string& name, T&& resource)
 		{
 			m_resources.insert_or_assign(name, std::move(resource));
-			return m_resources.at(name);
+			T* resourcePtr = &m_resources.at(name);
+			m_names.insert_or_assign(resourcePtr, name);
+			return *resourcePtr;
 		}
 
 		const T* tryGet(const std::string& name) const
@@ -48,6 +50,13 @@ namespace px
 			return *out;
 		}
 
+		const std::string* getName(const T& resource)
+		{
+			return m_names.count(&resource)
+				? &m_names.at(&resource)
+				: nullptr;
+		}
+
 		const std::unordered_map<std::string, T>& data() const
 		{
 			return m_resources;
@@ -56,6 +65,7 @@ namespace px
 	private:
 
 		std::unordered_map<std::string, T> m_resources;
+		std::unordered_map<const T*, std::string> m_names;
 		std::optional<T> m_error;
 	};
 }

@@ -26,12 +26,14 @@ struct Context
 	};
 
 	std::set<int32_t> levels{ 1 };
-	int32_t selectedLevel;
-	int32_t unlockedLevel{1};
+	int32_t selectedLevel{ 1 };
+	int32_t unlockedLevel{ 1 };
 
-	std::unordered_map<char, std::pair<std::string, bool>> tempMapping{
+	const std::unordered_map<char, std::pair<std::string, bool>> tempMapping{
 		{' ', {"empty", false}},
 		{'#', {"dirt", false}},
+		{'%', {"cobble", false}},
+		{'@', {"moss", false}},
 		{'w', {"spike_up", true}},
 		{'a', {"spike_left", true}},
 		{'s', {"spike_down", true}},
@@ -42,6 +44,8 @@ struct Context
 		{'l', {"tspike_right", true}},
 		{'c', {"cloud", true}},
 		{'p', {"platform", true}},
-		{'m', {"fungi", true}}
+		{'m', {"fungi", true}},
+		{'b', {"button", true}},
+		{'t', {"toggle_block", true}}
 	};
 };

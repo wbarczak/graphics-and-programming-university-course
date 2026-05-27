@@ -57,8 +57,12 @@ Game::Game()
 
 	m_ctx.tiles["empty"] = Tile{ Tile::Type::Air, "", "empty" };
 	m_ctx.tiles["dirt"] = Tile{ Tile::Type::Solid, "dirt", "dirt" };
+	m_ctx.tiles["moss"] = Tile{ Tile::Type::Solid, "moss", "moss" };
+	m_ctx.tiles["cobble"] = Tile{ Tile::Type::Solid, "cobble", "cobble" };
 
 	assets.tileSprites.set("dirt", px::TileSprite("tiles/dirt"));
+	assets.tileSprites.set("cobble", px::TileSprite("tiles/cobble_tileset"));
+	assets.tileSprites.set("moss", px::TileSprite("tiles/moss_on_cobble_tileset"));
 
 	loadSprites();
 
@@ -136,13 +140,6 @@ Game::Game()
 	assets.backgrounds.set("settings", std::move(settingsBackground));
 
 	assets.font = sf::Font(RESOURCES "Butterpop.otf");
-	
-	EntityPrefab cloudParticle;
-	cloudParticle.emplace<Transform>();
-	cloudParticle.emplace<Lifetime>(sf::Time::Zero, sf::milliseconds(400));
-	cloudParticle.emplace<IsParticle>();
-	cloudParticle.emplace<px::Animation>(assets.clipMaps.get("particle"));
-	m_ctx.entities.set("cloud_particle", std::move(cloudParticle));
 
 	auto desktop = sf::VideoMode::getDesktopMode();
 	window.create(sf::VideoMode(desktop.size), "Nellie's Adventure", sf::Style::None);
