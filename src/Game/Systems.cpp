@@ -1,9 +1,9 @@
 #include "Systems.hpp"
 #include "Components.hpp"
 
-void Systems::allign(Level& level)
+void Systems::allign(entt::registry& level)
 {
-	auto view = level.entities.view<Stationary>();
+	auto view = level.view<Stationary>();
 
 	view.each(
 		[](auto& stationary) {

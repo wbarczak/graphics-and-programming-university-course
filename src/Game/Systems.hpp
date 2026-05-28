@@ -1,8 +1,8 @@
 #pragma once
 
-#include "Level.hpp"
+#include <entt/entt.hpp>
 
 namespace Systems
 {
-	void allign(Level& level);
+	void allign(entt::registry& level);
 }

@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include <SFML/System.hpp>
+#include <SFML/Graphics/Rect.hpp>
 
 enum class ColiderType : uint8_t
 {

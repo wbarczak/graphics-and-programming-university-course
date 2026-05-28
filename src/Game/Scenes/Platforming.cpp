@@ -10,7 +10,6 @@
 #include "Platforming.hpp"
 #include "Game/Constants.hpp"
 #include "Game/DeprecatedDevice.hpp"
-#include "../Level.hpp"
 
 namespace nl = nlohmann;
 
