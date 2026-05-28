@@ -1,0 +1,26 @@
+{
+	"grid": [ 3, 4 ],
+	"default": "active",
+	"texture": "retractable_spike",
+	"origin": [ 0, 0 ],
+	"clips": {
+		"active": {
+			"type": "sticky",
+			"frames": [
+				[ 0, 0 ],
+				[ 1, 0 ],
+				[ 2, 0 ]
+			],
+			"duration": 0.1
+		},
+		"inactive": {
+			"type": "sticky",
+			"frames": [
+				[ 2, 0 ],
+				[ 1, 0 ],
+				[ 0, 0 ]
+			],
+			"duration": 0.1
+		}
+	}
+}

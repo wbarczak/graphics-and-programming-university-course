@@ -9,6 +9,8 @@ namespace nl = nlohmann;
 
 Game::Game()
 {
+	initPrefabGenerators();
+
 	recursiveLoad("resources/textures", [&](const auto& path, const auto& name)
 	{
 		sf::Texture texture;
@@ -45,7 +47,25 @@ Game::Game()
 
 	loadSprites();
 
-	initPrefabGenerators();
+	recursiveLoad("resources/entities", [&](const auto& path, const auto& name)
+	{
+		nl::json json;
+		std::ifstream file(path);
+
+		try
+		{
+			json << file;
+		}
+		catch (const std::exception& e)
+		{
+			SPDLOG_ERROR("{}", e.what());
+			return;
+		}
+
+		m_ctx.entities.set(name, m_prefabGenerators.at(json["type"])(json));
+
+		SPDLOG_INFO("Prefab loaded: {}", name);
+	});
 
 	px::BackgroundData background(
 		{
@@ -61,35 +81,13 @@ Game::Game()
 	assets.backgrounds.set("background", std::move(background));
 
 	assets.font = sf::Font("resources/Butterpop.otf");
-
-	EntityPrefab player;
-	player.emplace<Transform>(sf::Vector2f{ 0.0f, 0.0f }, sf::Vector2f{ 0.0f, 0.0f });
-	player.emplace<Hitbox>(sf::FloatRect(
-		sf::Vector2f(-0.25f, -0.25f),
-		sf::Vector2f(0.5f, 0.75f)
-	));
-	player.emplace<Controllable>();
-	player.emplace<px::Animation>(assets.clipMaps.get("player"));
-	m_ctx.entities.set("player", std::move(player));
-
+	
 	EntityPrefab cloudParticle;
 	cloudParticle.emplace<Transform>();
 	cloudParticle.emplace<Lifetime>(sf::Time::Zero, sf::milliseconds(400));
 	cloudParticle.emplace<IsParticle>();
 	cloudParticle.emplace<px::Animation>(assets.clipMaps.get("particle"));
 	m_ctx.entities.set("cloud_particle", std::move(cloudParticle));
-
-	EntityPrefab spikePrefab;
-	spikePrefab.emplace<Transform>();
-	spikePrefab.emplace<Hitbox>(sf::FloatRect{ {-0.25f, -0.75f}, {0.5f, 0.75f} }, ColiderType::Hazard);
-	spikePrefab.emplace<px::Animation>(assets.clipMaps.get("spike_up"));
-	m_ctx.entities.set("spike", std::move(spikePrefab));
-
-	EntityPrefab platformPrefab;
-	platformPrefab.emplace<Transform>();
-	platformPrefab.emplace<Hitbox>(sf::FloatRect{ { -0.5f, -0.5f}, {1.f,1.f} }, ColiderType::Platform);
-	platformPrefab.emplace<px::Animation>(assets.clipMaps.get("platform"));
-	m_ctx.entities.set("platform", std::move(platformPrefab));
 }
 
 void Game::loadSprites()
@@ -149,6 +147,8 @@ void Game::loadSprites()
 		}
 
 		assets.clipMaps.set(name, std::move(clips));
+
+		SPDLOG_INFO("Sprite loaded: {}", name);
 	});
 }
 
@@ -160,6 +160,10 @@ void Game::initPrefabGenerators()
 		prefab.emplace<Stationary>();
 		prefab.emplace<Hitbox>(sf::FloatRect{ {0.25f, 0.25f}, {0.5f, 0.5f} }, ColiderType::Hazard);
 		prefab.emplace<px::Animation>(assets.clipMaps.get(obj["sprite"]));
+		if (obj.contains("toggle") && obj["toggle"] == true)
+		{
+			prefab.emplace<Toggle>();
+		}
 		return prefab;
 	});
 
@@ -172,12 +176,13 @@ void Game::initPrefabGenerators()
 		return prefab;
 	});
 
-	m_prefabGenerators.emplace("player", [&](const auto& obj)
+	m_prefabGenerators.emplace("actor", [&](const auto& obj)
 	{
 		EntityPrefab prefab;
-		prefab.emplace<Stationary>();
-		prefab.emplace<Hitbox>(sf::FloatRect{ {0.f, 0.f}, {1.f, 0.2f} }, ColiderType::Platform);
+		prefab.emplace<Transform>();
+		prefab.emplace<Hitbox>(sf::FloatRect{ {-.25f, -.75f}, {.5f, .75f} }, ColiderType::Physics);
 		prefab.emplace<px::Animation>(assets.clipMaps.get(obj["sprite"]));
+		prefab.emplace<Controllable>();
 		return prefab;
 	});
 }

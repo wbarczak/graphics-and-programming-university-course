@@ -1,0 +1,5 @@
+{
+	"type": "tile_hazard",
+	"sprite": "retractable_spike",
+	"toggle": true
+}

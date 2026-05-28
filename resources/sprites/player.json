@@ -2,7 +2,7 @@
   "grid": [ 10, 3 ],
   "default": "idle",
   "texture": "entities/player",
-  "origin": [ 16, 24 ],
+  "origin": [ 16, 32 ],
   "clips": {
     "idle": {
       "type": "looped",

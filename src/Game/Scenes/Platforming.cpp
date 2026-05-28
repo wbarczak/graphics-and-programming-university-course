@@ -55,17 +55,43 @@ Scenes::Platforming::Platforming(px::SceneInitCtx& ctx, Context& gctx) :
 	}
 
 	{
-		auto spike = m_ctx.entities.get("spike").spawn(m_registry);
-		auto& transform = m_registry.get<Transform>(spike);
-		transform.pos = {8.5f, 8.0f};
-		transform.oldPos = transform.pos;
+		auto spike = m_ctx.entities.get("spike_up").spawn(m_registry);
+		auto& stationary = m_registry.get<Stationary>(spike);
+		stationary.position = {8.f, 7.f};
+	}
+
+	{
+		auto spike = m_ctx.entities.get("spike_down").spawn(m_registry);
+		auto& stationary = m_registry.get<Stationary>(spike);
+		stationary.position = { 8.f, 1.f };
+	}
+
+	{
+		auto spike = m_ctx.entities.get("spike_right").spawn(m_registry);
+		auto& stationary = m_registry.get<Stationary>(spike);
+		stationary.position = { 14.f, 5.f };
 	}
 
 	{
 		auto platform = m_ctx.entities.get("platform").spawn(m_registry);
-		auto& transform = m_registry.get<Transform>(platform);
-		transform.pos = { 6.5f, 6.5f };
-		transform.oldPos = transform.pos;
+		auto& stationary = m_registry.get<Stationary>(platform);
+		stationary.position = { 6.f, 6.f };
+	}
+
+	auto retractableSpike = m_ctx.entities.get("retractable_spike").spawn(m_registry);
+
+	{
+		auto& stationary = m_registry.get<Stationary>(retractableSpike);
+		stationary.position = { 7.f, 7.f };
+	}
+
+	{
+		Device device;
+		device.type = DeviceType::Timed;
+		device.onTime = sf::seconds(5);
+		device.offTime = sf::seconds(5);
+		device.out.push_back({ retractableSpike });
+		m_devices.push_back(std::move(device));
 	}
 }
 
@@ -84,6 +110,27 @@ void Scenes::Platforming::update(px::UpdateCtx& ctx)
 void Scenes::Platforming::fixedUpdate(px::UpdateCtx& ctx)
 {
 	computeLifetime(ctx);
+
+	for (auto& device : m_devices)
+	{
+		switch (device.type)
+		{
+		case DeviceType::Timed:
+			
+			bool state = device.accumulated % (device.onTime + device.offTime) <= device.onTime;
+
+			for (auto& out : device.out)
+			{
+				if (auto* toggle = m_registry.try_get<Toggle>(out.entity))
+				{
+					toggle->active = out.inverted ? !state : state;
+				}
+			}
+
+			device.accumulated += ctx.dt;
+			break;
+		}
+	}
 
 	playerControlSystem(ctx);
 
@@ -139,22 +186,48 @@ void Scenes::Platforming::draw(px::DrawCtx& ctx) const
 		sprite.setPosition(position);
 		sprite.setScale(api.scaling.getScale());
 		ctx.window.draw(sprite);
-
-		/*ctx.window.setView(ctx.window.getDefaultView());
-		sf::Text positionLavel(api.assets.font, std::to_string(transform.pos.x) + ", " + std::to_string(transform.pos.y));
-		ctx.window.draw(positionLavel);*/
 	});
 
-	auto hitboxView = m_registry.view<const Transform, const Hitbox>();
-
-	hitboxView.each([&](const Transform& transform, const Hitbox& hitbox)
+	auto stationaryView = m_registry.view<const px::Animation, const Stationary>();
+	stationaryView.each([&](const auto& animation, const auto& stationary)
 	{
+		sf::Vector2f position = stationary.position * static_cast<float>(unitPixels);
+
+		sf::Sprite sprite = animation.getSprite().value();
+		sprite.setPosition(position);
+		sprite.setScale(api.scaling.getScale());
+		ctx.window.draw(sprite);
+	});
+
+	auto hitboxView = m_registry.view<const Hitbox>();
+
+	hitboxView.each([&](entt::entity entity, const Hitbox& hitbox)
+	{
+		sf::Vector2f worldPosition{};
+
+		if (const auto* toggle = m_registry.try_get<Toggle>(entity))
+		{
+			if (!toggle->active)
+			{
+				return;
+			}
+		}
+
+		if (const auto* transform = m_registry.try_get<Transform>(entity))
+		{
+			worldPosition = px::lerp(transform->oldPos, transform->pos, ctx.alpha) + hitbox.rect.position;
+		}
+		else if (const auto* stationary = m_registry.try_get<Stationary>(entity))
+		{
+			worldPosition = stationary->position + hitbox.rect.position;
+		}
+		else
+		{
+			return;
+		}
+
 		sf::RectangleShape hitboxRectangle{ hitbox.rect.size * unitPixels };
-		sf::Vector2f position = px::lerp(
-			hitbox.rect.position + transform.oldPos,
-			hitbox.rect.position + transform.pos,
-			ctx.alpha
-		) * static_cast<float>(unitPixels);
+		sf::Vector2f position = worldPosition * static_cast<float>(unitPixels);
 		hitboxRectangle.setPosition(position);
 		hitboxRectangle.setFillColor(sf::Color(255, 0, 0, 150));
 
@@ -166,9 +239,13 @@ void Scenes::Platforming::animate(px::UpdateCtx& ctx)
 {
 	auto view = m_registry.view<px::Animation>();
 
-	view.each([&](auto& animation) {
-		animation.setMirrored(m_dir == -1);
+	view.each([&](entt::entity entity, auto& animation) {
 		animation.update(ctx.dt);
+
+		if (const auto* transform = m_registry.try_get<Transform>(entity))
+		{
+			animation.setMirrored(transform->facing != 1);
+		}
 	});
 
 	auto playerView = m_registry.view<const Controllable, const Transform, px::Animation>();
@@ -190,6 +267,18 @@ void Scenes::Platforming::animate(px::UpdateCtx& ctx)
 			return;
 		}
 		animation.play("run");
+	});
+
+	auto toggleView = m_registry.view<const Toggle, px::Animation>();
+	toggleView.each([&](const auto& toggle, auto& animation) {
+		if (toggle.active)
+		{
+			animation.play("active");
+		}
+		else
+		{
+			animation.play("inactive");
+		}
 	});
 }
 
@@ -268,7 +357,7 @@ void Scenes::Platforming::playerControlSystem(px::UpdateCtx& ctx)
 
 		int32_t direction = 0 - api.mapping.isHeld("Left") + api.mapping.isHeld("Right");
 
-		m_dir = direction != 0 ? direction : m_dir;
+		transform.facing = direction != 0 ? direction : transform.facing;
 
 		transform.vel.x += (direction * k_acceleration * ctx.dt.asSeconds());
 
@@ -308,6 +397,7 @@ void Scenes::Platforming::movementAndColisionSystem(px::UpdateCtx& ctx)
 	};
 
 	auto view = m_registry.view<Transform, const Hitbox>();
+	auto stationaryView = m_registry.view<const Stationary, const Hitbox>();
 
 	view.each([&](entt::entity entity, Transform& transform, const Hitbox& hitbox)
 	{
@@ -353,7 +443,7 @@ void Scenes::Platforming::movementAndColisionSystem(px::UpdateCtx& ctx)
 			}
 		}
 
-		view.each([&](entt::entity innerEntity, Transform& transform, const Hitbox& innerHitbox)
+		stationaryView.each([&](entt::entity innerEntity, const Stationary& innerStationary, const Hitbox& innerHitbox)
 		{
 			if (entity == innerEntity || innerHitbox.type == ColiderType::Physics)
 			{
@@ -361,7 +451,7 @@ void Scenes::Platforming::movementAndColisionSystem(px::UpdateCtx& ctx)
 			}
 
 			sf::FloatRect innerEntityRect = innerHitbox.rect;
-			innerEntityRect.position += transform.pos;
+			innerEntityRect.position += innerStationary.position;
 			px::ColisionResult result = px::sweptAABB(entityRect, innerEntityRect, deltaDistance);
 
 			if (!result.hit)
@@ -400,7 +490,7 @@ void Scenes::Platforming::movementAndColisionSystem(px::UpdateCtx& ctx)
 				deltaDistance = transform.vel * ctx.dt.asSeconds();
 			}
 
-			if (type == ColiderType::Hazard && !ctx.transition.isActive())
+			if (type == ColiderType::Hazard && resolve && !ctx.transition.isActive())
 			{
 				ctx.transition.start([&]()
 				{
@@ -419,10 +509,41 @@ void Scenes::Platforming::movementAndColisionSystem(px::UpdateCtx& ctx)
 
 		transform.pos += transform.vel * ctx.dt.asSeconds();
 
+		stationaryView.each([&](entt::entity innerEntity, const Stationary& innerStationary, const Hitbox& innerHitbox)
+		{
+			auto colider = innerHitbox.rect;
+			colider.position += innerStationary.position;
+
+			bool aabb = colider.position.x <= entityRect.position.x + entityRect.size.x
+				&& colider.position.y <= entityRect.position.y + entityRect.size.y
+				&& colider.position.x + colider.size.x >= entityRect.position.x
+				&& colider.position.y + colider.size.y >= entityRect.position.y;
+
+			if (!aabb)
+			{
+				return;
+			}
+
+			bool active = true;
+
+			if (const auto* toggle = m_registry.try_get<Toggle>(innerEntity))
+			{
+				active = toggle->active;
+			}
+
+			if (active && innerHitbox.type == ColiderType::Hazard && !ctx.transition.isActive())
+			{
+				ctx.transition.start([&]()
+				{
+					api.comms.replace("Platforming");
+				});
+			}
+		});
+
 		if (m_registry.all_of<Controllable>(entity))
 		{
 			m_oldCameraPosition = m_cameraPosition;
-			m_cameraPosition = px::lerp(m_cameraPosition, { transform.pos.x + m_dir * 1.0f, transform.pos.y - 1.0f }, 0.05f);
+			m_cameraPosition = px::lerp(m_cameraPosition, { transform.pos.x + transform.facing * 1.f, transform.pos.y - 1.0f }, 0.05f);
 		}
 	});
 

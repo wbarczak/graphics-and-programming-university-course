@@ -34,12 +34,13 @@ struct Transform
 	sf::Vector2f vel{};
 	sf::Vector2f oldPos{};
 	float jumpStartY{};
-	Facing facing{};
+	int8_t facing{ Facing::Right };
 };
 
 struct Stationary
 {
-	sf::Vector2f position;
+	sf::Vector2f position{};
+	sf::Vector2f alignment{};
 };
 
 struct Controllable

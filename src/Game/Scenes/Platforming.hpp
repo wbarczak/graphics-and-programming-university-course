@@ -8,6 +8,7 @@
 #include "Game/Tile.hpp"
 #include "Game/Map.hpp"
 #include "Game/Components.hpp"
+#include "Game/Device.hpp"
 
 namespace Scenes
 {
@@ -37,8 +38,8 @@ namespace Scenes
 
 		Map m_map;
 
-		sf::Vector2f m_cameraPosition, m_oldCameraPosition;
+		std::vector<Device> m_devices;
 
-		int32_t m_dir{ 1 };
+		sf::Vector2f m_cameraPosition, m_oldCameraPosition;
 	};
 }
