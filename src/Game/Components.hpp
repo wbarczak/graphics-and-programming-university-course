@@ -89,14 +89,10 @@ struct Crumbling
 
 struct Trampoline{};
 
-// AT is short for Animation Tag
+struct AnimPlayer{};
 
-struct ATDynamic{};
+struct AnimFlipFlop{};
 
-struct ATTrigger{};
+struct AnimCrumbling{};
 
-struct ATToggle{};
-
-struct ATCrumbling{};
-
-struct ATParticle{};
+struct AnimHitboxDisabled{};

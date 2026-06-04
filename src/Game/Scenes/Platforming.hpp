@@ -9,6 +9,7 @@
 #include "Game/Map.hpp"
 #include "Game/Components.hpp"
 #include "Game/DeprecatedDevice.hpp"
+#include "Game/Camera.hpp"
 
 namespace Scenes
 {
@@ -41,7 +42,7 @@ namespace Scenes
 
 		std::vector<DeprecatedDevice> m_devices;
 
-		sf::Vector2f m_cameraPosition, m_oldCameraPosition;
+		Camera m_camera;
 
 		bool m_restarting{};
 

@@ -12,6 +12,8 @@
 #include <iostream>
 #include <filesystem>
 
+#include "Components.hpp"
+
 namespace nl = nlohmann;
 
 void saveWorld(

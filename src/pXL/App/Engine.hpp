@@ -75,6 +75,7 @@ namespace px
 		SceneInitCtx apiScene{
 			scenes,
 			transition,
+			window,
 			engApi
 		};
 

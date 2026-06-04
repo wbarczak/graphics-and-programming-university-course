@@ -29,11 +29,12 @@ Scenes::Platforming::Platforming(px::SceneInitCtx& ctx, Context& gctx) :
 	m_map(sf::Vector2u(60, 12), m_ctx.tiles["empty"]),
 	m_jump(m_ctx.sounds.at("jump")),
 	m_landing(m_ctx.sounds.at("landing")),
-	m_step(m_ctx.sounds.at("step"))
+	m_step(m_ctx.sounds.at("step")),
+	m_camera(ctx.window, api.scaling)
 {
 	std::ifstream file(RESOURCES + ("levels/" + std::to_string(m_ctx.selectedLevel)) + ".json");
 	nl::json obj;
-	
+
 	file >> obj;
 
 	sf::Vector2u size{};
@@ -124,8 +125,7 @@ Scenes::Platforming::Platforming(px::SceneInitCtx& ctx, Context& gctx) :
 		transform.pos.x = obj["player"][0];
 		transform.pos.y = obj["player"][1];
 		transform.oldPos = transform.pos;
-		m_cameraPosition = transform.pos;
-		m_oldCameraPosition = transform.pos;
+		m_camera.setPosition(transform.pos);
 	}
 
 	auto mapSize = static_cast<sf::Vector2f>(m_map.size());
@@ -271,20 +271,15 @@ void Scenes::Platforming::draw(px::DrawCtx& ctx) const
 		sf::Vector2f windowSize = static_cast<sf::Vector2f>(ctx.window.getSize());
 		sf::Vector2f halfScreenTiles = windowSize / static_cast<float>(unitPixels) / 2.0f;
 
-		sf::Vector2f position = px::lerp(m_oldCameraPosition, m_cameraPosition, ctx.alpha);
+		sf::Vector2f position = m_camera.lerp(ctx.alpha);
 		position.x = std::min(position.x, m_map.size().x - halfScreenTiles.x);
 		position.y = std::max(position.y, halfScreenTiles.y);
 		position.x = std::max(position.x, halfScreenTiles.x);
 		position.y = std::min(position.y, m_map.size().y - halfScreenTiles.y);
 
 		ctx.window.draw(px::Background(api.assets.backgrounds.get("background"), position.x * unitPixels, m_elapsed));
-
-		sf::View view(
-			position * static_cast<float>(unitPixels),
-			static_cast<sf::Vector2f>(ctx.window.getSize())
-		);
-
-		ctx.window.setView(view);
+		
+		ctx.window.setView(m_camera.getView(ctx.alpha));
 	}
 
 	for (size_t y = 0; y < size.y; ++y) for (size_t x = 0; x < size.x; ++x)
@@ -375,7 +370,22 @@ void Scenes::Platforming::draw(px::DrawCtx& ctx) const
 		ctx.window.draw(hitboxRectangle);
 	});*/
 
-	ctx.window.setView(px::getRenderTargetView(ctx.window));
+	{
+		sf::Vector2f worldPos = m_camera.screenToWorld(api.mapping.getMousePosition());
+		
+
+		sf::RectangleShape tileSelection{ {api.scaling.getUnit(),api.scaling.getUnit()} };
+		tileSelection.setPosition(sf::Vector2f{ floorf(worldPos.x), floorf(worldPos.y) } * api.scaling.getUnit());
+		tileSelection.setFillColor(sf::Color::Transparent);
+		tileSelection.setOutlineColor(sf::Color::Red);
+		tileSelection.setOutlineThickness(2);
+		ctx.window.draw(tileSelection);
+
+		ctx.window.setView(px::getRenderTargetView(ctx.window));
+
+		ctx.window.draw(sf::Text(api.assets.font, std::to_string(worldPos.x) + ' ' + std::to_string(worldPos.y)));
+	}
+
 	sf::RectangleShape vignette(static_cast<sf::Vector2f>(ctx.window.getSize()));
 	vignette.setTexture(&api.assets.textures.get("vignette"));
 	vignette.setFillColor({ 0, 0, 0, 50 });
@@ -729,10 +739,19 @@ void Scenes::Platforming::movementAndColisionSystem(px::UpdateCtx& ctx)
 			}
 		});
 
-		if (m_registry.all_of<Controllable>(entity))
+		if (const auto controllable = m_registry.try_get<Controllable>(entity))
 		{
-			m_oldCameraPosition = m_cameraPosition;
-			m_cameraPosition = px::lerp(m_cameraPosition, { transform.pos.x + transform.facing * 1.f, transform.pos.y - 1.0f }, 0.05f);
+			m_camera.oldPosition = m_camera.position;
+
+			sf::Vector2f halfScreenTiles = static_cast<sf::Vector2f>(ctx.window.getSize()) / static_cast<float>(api.scaling.getUnit()) / 2.f;
+			sf::Vector2f lerpPosition = px::lerp(m_camera.position, { transform.pos.x + transform.facing * 1.f, transform.pos.y - 1.f }, 0.05f);
+
+			lerpPosition.x = std::min(lerpPosition.x, m_map.size().x - halfScreenTiles.x);
+			lerpPosition.y = std::max(lerpPosition.y, halfScreenTiles.y);
+			lerpPosition.x = std::max(lerpPosition.x, halfScreenTiles.x);
+			lerpPosition.y = std::min(lerpPosition.y, m_map.size().y - halfScreenTiles.y);
+
+			m_camera.position = lerpPosition;
 		}
 	});
 

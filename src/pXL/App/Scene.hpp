@@ -37,14 +37,16 @@ namespace px
 	{
 	public:
 
-		SceneInitCtx(SceneConfig& properties, Transition& transition, EngineApi api) :
+		SceneInitCtx(SceneConfig& properties, Transition& transition, const sf::RenderTarget& window, EngineApi api) :
 			properties(properties),
 			transition(transition),
+			window(window),
 			api(api)
 		{}
 
 		SceneConfig& properties;
-		Transition& transition;
+		Transition& transition;// this should not be there and also not be in the update ctx
+		const sf::RenderTarget& window;
 
 	private:
 
@@ -56,7 +58,7 @@ namespace px
 
 	struct UpdateCtx
 	{
-		const sf::Window& window;
+		const sf::RenderTarget& window;
 		const sf::Time dt;
 		Transition& transition;
 	};
@@ -74,7 +76,7 @@ namespace px
 	{
 	public:
 
-		Scene(const SceneInitCtx& ctx) : api(ctx.api) {}
+		Scene(SceneInitCtx& ctx) : api(ctx.api) {}
 		virtual ~Scene() = default;
 
 		virtual void onEnter(std::any&& payload) {}
@@ -82,7 +84,7 @@ namespace px
 		virtual void onEvent(const sf::Event& event) {}
 		virtual void update(UpdateCtx& ctx) {}
 		virtual void fixedUpdate(UpdateCtx& ctx) {}
-		virtual void draw(DrawCtx& ctx) const = 0;
+		virtual void draw(DrawCtx& ctx) const {};
 
 	protected:
 

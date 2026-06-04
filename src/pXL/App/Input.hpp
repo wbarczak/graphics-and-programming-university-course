@@ -296,6 +296,8 @@ namespace px
 				return static_cast<InputId>(i);
 			}
 		}
+
+		return {};
 	}
 
 	inline sf::Vector2i Input::getMousePosition() const
